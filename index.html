@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ash & Ember</title>
+  <style>
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      background: #0d0d12;
+      color: #f0e6d2;
+      font-family: monospace;
+    }
+    canvas {
+      image-rendering: pixelated;
+      border: 2px solid #5e4b3a;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      background: #171a1f;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const tile = 16;
+    const world = {
+      width: 60,
+      height: 30
+    };
+
+    const player = {
+      x: 18,
+      y: 14,
+      w: 12,
+      h: 12,
+      speed: 1.5,
+      color: "#f0d8b8"
+    };
+
+    const npcs = [
+      {
+        name: "Mara",
+        x: 24,
+        y: 15,
+        color: "#8d6a48",
+        dialogue: [
+          "The city still breathes after midnight.",
+          "You don't look like a hero. You look like someone who paid for silence."
+        ]
+      },
+      {
+        name: "Varr",
+        x: 32,
+        y: 20,
+        color: "#8267d3",
+        dialogue: [
+          "There are rumors of a hidden archive beneath the old theater.",
+          "If the wrong people find it, the city burns again."
+        ]
+      }
+    ];
+
+    const keys = {};
+    let message = "";
+    let messageTimer = 0;
+
+    document.addEventListener("keydown", (e) => {
+      keys[e.key.toLowerCase()] = true;
+
+      if (e.code === "Space") {
+        interact();
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function movePlayer() {
+      let dx = 0;
+      let dy = 0;
+
+      if (keys["w"]) dy -= 1;
+      if (keys["s"]) dy += 1;
+      if (keys["a"]) dx -= 1;
+      if (keys["d"]) dx += 1;
+
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy) || 1;
+        const stepX = (dx / len) * player.speed;
+        const stepY = (dy / len) * player.speed;
+
+        player.x += stepX;
+        player.y += stepY;
+
+        player.x = clamp(player.x, 2, world.width - 4);
+        player.y = clamp(player.y, 2, world.height - 4);
+      }
+    }
+
+    function interact() {
+      let closest = null;
+      let bestDist = Infinity;
+
+      for (const npc of npcs) {
+        const dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+        if (dist < 2.2 && dist < bestDist) {
+          bestDist = dist;
+          closest = npc;
+        }
+      }
+
+      if (closest) {
+        const line = closest.dialogue[Math.floor(Math.random() * closest.dialogue.length)];
+        message = closest.name + ": " + line;
+        messageTimer = 180;
+      } else {
+        message = "No one nearby.";
+        messageTimer = 120;
+      }
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "#1c2127";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // ground
+      for (let y = 0; y < world.height; y++) {
+        for (let x = 0; x < world.width; x++) {
+          const px = x * tile;
+          const py = y * tile;
+
+          if ((x + y) % 2 === 0) {
+            ctx.fillStyle = "#21272d";
+          } else {
+            ctx.fillStyle = "#1a1f25";
+          }
+          ctx.fillRect(px * 2, py * 2, tile * 2, tile * 2);
+        }
+      }
+
+      // simple buildings
+      const buildings = [
+        { x: 18, y: 10, w: 8, h: 8, c: "#3d2c2b" },
+        { x: 34, y: 12, w: 9, h: 7, c: "#2f3238" },
+        { x: 12, y: 22, w: 10, h: 6, c: "#2a262a" },
+        { x: 28, y: 24, w: 8, h: 7, c: "#3a2b2f" }
+      ];
+
+      for (const b of buildings) {
+        ctx.fillStyle = b.c;
+        ctx.fillRect(b.x * tile * 2, b.y * tile * 2, b.w * tile * 2, b.h * tile * 2);
+      }
+    }
+
+    function drawNPCs() {
+      for (const npc of npcs) {
+        ctx.fillStyle = npc.color;
+        ctx.fillRect(npc.x * tile * 2 - 8, npc.y * tile * 2 - 8, 16, 16);
+
+        // face detail
+        ctx.fillStyle = "#1a130f";
+        ctx.fillRect(npc.x * tile * 2 - 3, npc.y * tile * 2 - 3, 6, 6);
+      }
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x * tile * 2 - 8, player.y * tile * 2 - 8, 16, 16);
+
+      ctx.fillStyle = "#3a2a1e";
+      ctx.fillRect(player.x * tile * 2 - 2, player.y * tile * 2 - 9, 5, 5);
+    }
+
+    function drawHUD() {
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(0, canvas.height - 70, canvas.width, 70);
+
+      ctx.fillStyle = "#f4d9a5";
+      ctx.font = "18px monospace";
+      ctx.fillText("ASH & EMBER", 24, canvas.height - 36);
+
+      if (messageTimer > 0) {
+        ctx.fillStyle = "#f0e6d2";
+        ctx.font = "14px monospace";
+        ctx.fillText(message, 24, canvas.height - 18);
+      }
+    }
+
+    function update() {
+      movePlayer();
+
+      if (messageTimer > 0) {
+        messageTimer -= 1;
+      }
+    }
+
+    function render() {
+      drawBackground();
+      drawNPCs();
+      drawPlayer();
+      drawHUD();
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    message = "Move with WASD. Press Space near a person to speak.";
+    gameLoop();
+  </script>
+</body>
+</html>
